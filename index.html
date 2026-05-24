@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>合作模型测算 - 探跃</title>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "recharts": "https://esm.sh/recharts@2.12.7"
+  }
+}
+</script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: #09090b;
+  color: #f4f4f5;
+}
+/* ========== 通用 ========== */
+.mh { min-height: 100vh; }
+.bg950 { background: #09090b; }
+.bg900 { background: #18181b; }
+.bg800 { background: #27272a; }
+.t50  { color: #fafafa; }
+.t100 { color: #f4f4f5; }
+.t200 { color: #e4e4e7; }
+.t300 { color: #d4d4d8; }
+.t400 { color: #a1a1aa; }
+.t500 { color: #71717a; }
+.tG3  { color: #6ee7b7; }
+.tG4  { color: #34d399; }
+.tR3  { color: #fca5a5; }
+.tR4  { color: #f87171; }
+.tB3  { color: #93c5fd; }
+.tB4  { color: #60a5fa; }
+.tP3  { color: #d8b4fe; }
+.tC3  { color: #67e8f9; }
+.tO3  { color: #fdba74; }
+
+.b1  { border: 1px solid #27272a; }
+.br4 { border-radius: 4px; }
+.br8 { border-radius: 8px; }
+.bL4 { border-left: 4px solid #ef4444; }
+
+.f   { display: flex; }
+.g   { display: grid; }
+.fw  { flex-wrap: wrap; }
+.ai  { align-items: center; }
+.ais { align-items: flex-start; }
+.jb  { justify-content: space-between; }
+.fi  { flex: 1; }
+
+.gap2 { gap: 8px; }
+.gap3 { gap: 12px; }
+.gc1  { grid-template-columns: 1fr; }
+.gc2  { grid-template-columns: 1fr 1fr; }
+
+.p3  { padding: 12px; }
+.p4  { padding: 16px; }
+.p2h { padding: 10px; }
+.px2 { padding-left: 8px; padding-right: 8px; }
+.px4 { padding-left: 16px; padding-right: 16px; }
+.py1h{ padding-top: 6px; padding-bottom: 6px; }
+.py2 { padding-top: 8px; padding-bottom: 8px; }
+
+.mb05{ margin-bottom: 2px; }
+.mb1 { margin-bottom: 4px; }
+.mb1h{ margin-bottom: 6px; }
+.mb2 { margin-bottom: 8px; }
+.mb3 { margin-bottom: 12px; }
+.mb4 { margin-bottom: 16px; }
+.mt05{ margin-top: 2px; }
+.mt1 { margin-top: 4px; }
+.mt1h{ margin-top: 6px; }
+.mt2 { margin-top: 8px; }
+
+.wf  { width: 100%; }
+.h56 { height: 224px; }
+.w48 { width: 72px; }
+
+.txs { font-size: 12px; }
+.tsm { font-size: 14px; }
+.tlg { font-size: 18px; }
+.t2xl{ font-size: 24px; }
+
+.fsb { font-weight: 600; }
+.fb  { font-weight: 700; }
+.fm  { font-family: monospace; }
+.u   { text-transform: uppercase; }
+
+.bt  { border-top: 1px solid #3f3f46; }
+.pt1h{ padding-top: 6px; }
+
+.cp  { cursor: pointer; }
+.tr  { transition: all 0.15s; }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+.ap { animation: pulse 2s infinite; }
+
+input[type=range] { appearance: none; background: #27272a; border-radius: 4px; outline: none; height: 6px; }
+input[type=range]::-webkit-slider-thumb { width: 16px; height: 16px; border-radius: 50%; background: #3b82f6; cursor: pointer; appearance: none; }
+
+.ni { text-align: right; font: 700 13px monospace; color: #6ee7b7; background: #18181b; border: 1px solid #3f3f46; border-radius: 4px; padding: 2px 6px; width: 72px; outline: none; }
+.ni:focus { border-color: #3b82f6; }
+.ni::-webkit-inner-spin-button { appearance: none; margin: 0; }
+
+.rh { font-size: 11px; color: #52525b; }
+
+/* tab */
+.tabs { display: flex; gap: 4px; margin-bottom: 12px; background: #18181b; border: 1px solid #27272a; border-radius: 8px; padding: 4px; }
+.tb { flex: 1; padding: 10px 16px; font-size: 14px; font-weight: 600; border-radius: 6px; border: none; cursor: pointer; transition: all 0.15s; background: transparent; color: #a1a1aa; }
+.tb:hover { color: #d4d4d8; }
+.tb.on { background: #172554; color: #93c5fd; }
+
+@media (min-width: 768px) { .gc2 { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="module">
+import React, { useState, useMemo, useEffect } from "react";
+import { createRoot } from "react-dom/client";
+import { BarChart, Bar, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, ReferenceLine } from "recharts";
+
+const e = React.createElement;
+const fmt  = n => Math.round(n).toLocaleString('zh-CN');
+const fmtW = n => { const v = n / 1e4; return (v >= 0 ? '' : '-') + Math.abs(v).toFixed(1) + '万'; };
+const pct  = n => (n * 100).toFixed(1) + '%';
+
+// ---- SVG 图标 ----
+const I = (p) => e('svg', { xmlns: 'http://www.w3.org/2000/svg', width: p.size||14, height: p.size||14, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', className: p.className||'' }, p.children);
+
+const IconAlert = p => e(I, { ...p }, e('path',{d:'m12 9v4'}), e('path',{d:'m10.3 3.7-8.5 14.5a2.2 2.2 0 0 0 1.9 3.3h16.6a2.2 2.2 0 0 0 1.9-3.3L13.7 3.7a2.2 2.2 0 0 0-3.4 0z'}), e('path',{d:'M12 17h0'}));
+const IconUp     = p => e(I, { ...p }, e('polyline',{points:'22 7 13.5 15.5 8.5 10.5 2 17'}), e('polyline',{points:'16 7 22 7 22 13'}));
+const IconDown   = p => e(I, { ...p }, e('polyline',{points:'22 17 13.5 8.5 8.5 13.5 2 7'}), e('polyline',{points:'16 17 22 17 22 11'}));
+const IconCalc   = p => e(I, { ...p }, e('rect',{x:4,y:2,width:16,height:20,rx:2}), e('line',{x1:8,x2:16,y1:6,y2:6}), e('line',{x1:16,x2:16,y1:14,y2:18}), e('path',{d:'M16 10h.01'}), e('path',{d:'M12 10h.01'}), e('path',{d:'M8 10h.01'}), e('path',{d:'M12 14h.01'}), e('path',{d:'M8 14h.01'}), e('path',{d:'M12 18h.01'}), e('path',{d:'M8 18h.01'}));
+const IconBulb  = p => e(I, { ...p }, e('path',{d:'M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5'}), e('path',{d:'M9 18h6'}), e('path',{d:'M10 22h4'}));
+
+// ---- NumInput: 滑块 + 手动输入 ----
+function NumInput({ label, value, onChange, min, max, step, suffix, hint }) {
+  const [tmp, setTmp] = useState(String(value));
+  useEffect(() => { setTmp(String(value)); }, [value]);
+
+  const commit = (raw) => {
+    const v = Number(raw);
+    if (isNaN(v)) { setTmp(String(value)); return; }
+    const clamped = Math.max(min, Math.min(max, v));
+    onChange(clamped);
+    setTmp(String(clamped));
+  };
+
+  return e('div', { className: 'bg950 b1 br8 p2h' },
+    e('div', { className: 'f jb ai mb1' },
+      e('label', { className: 'txs t400 fsb' }, label),
+      e('div', { className: 'f ai gap2' },
+        e('input', { type: 'number', value: tmp, min, max, step, className: 'ni',
+          onChange: v => setTmp(v.target.value),
+          onBlur: v => commit(v.target.value),
+          onKeyDown: v => { if (v.key === 'Enter') v.target.blur(); }
+        }),
+        suffix && e('span', { className: 'txs t500' }, suffix)
+      )
+    ),
+    e('input', { type: 'range', min, max, step, value, className: 'wf cp',
+      onChange: v => onChange(Number(v.target.value))
+    }),
+    e('div', { className: 'f jb rh mt05' },
+      e('span', null, min, suffix||''),
+      hint && e('span', { className: 't500' }, hint),
+      e('span', null, max, suffix||'')
+    )
+  );
+}
+
+// ---- Section 标题 ----
+function Sec({ text }) {
+  return e('div', { className: 'txs t500 u fsb mb1h' }, text);
+}
+
+// ---- 指标卡片 ----
+function Card({ label, value, sub, color }) {
+  const bg = color === 'blue' ? '#172554' : color === 'green' ? '#022c22' : color === 'purple' ? '#3b0764' : color === 'orange' ? '#431407' : '';
+  const bd = color === 'blue' ? '#1e40af' : color === 'green' ? '#065f46' : color === 'purple' ? '#6b21a8' : color === 'orange' ? '#9a3412' : '#27272a';
+  return e('div', { className: 'bg900 b1 br8 p3', style: { background: bg, borderColor: bd } },
+    e('div', { className: 'txs t400' }, label),
+    e('div', { className: 'tlg fb t100 mt05' }, value),
+    e('div', { className: 'txs t500 mt05' }, sub)
+  );
+}
+
+// ---- 明细行 ----
+function Row({ label, value, bold }) {
+  const neg = value < 0;
+  const cls = bold
+    ? (value >= 0 ? 'tG3 tlg fb' : 'tR3 tlg fb')
+    : (neg ? 'tR3' : 't200');
+  return e('div', { className: 'f jb ai' },
+    e('span', { className: (bold ? 'fb t100' : 't300') + ' tsm' }, label),
+    e('span', { className: 'fm ' + cls }, (neg ? '-' : '') + '¥' + fmt(Math.abs(value)))
+  );
+}
+
+// ============ 核心计算函数 ============
+function calcLY(p) {
+  const { G, rr, F, S, Y, RO, OP, AS, PF, TS, TR } = p;
+  const gu = G / S, ru = gu * rr, rGMV = ru * S;
+  const gm = ru * (S - F);
+  const tc = rGMV * TS * TR;
+  const pt = rGMV * PF;
+  const dist = gm - tc - pt; // 平台扣点双方共担，先扣再分
+  const ad = G / RO;
+  const yiS = dist * Y, jiS = dist * (1 - Y);
+  const yiAd = ad * AS, jiAd = ad * (1 - AS);
+  return { gu, ru, rGMV, gm, tc, dist, ad, pt, yiS, jiS, yiAd, jiAd,
+    yiNet: yiS - yiAd - OP, jiNet: jiS - jiAd, OP, tPct: rGMV ? tc / rGMV : 0 };
+}
+
+function calcDL(p) {
+  const { G, rr, S, AR, RO, OP, AS, PF, TS, TR } = p;
+  const gu = G / S, ru = gu * rr, rGMV = ru * S;
+  const pt = rGMV * PF;
+  const netGMV = rGMV - pt; // 平台扣点双方共担，从实收中先扣
+  const af = netGMV * AR;  // 佣金基于扣平台费后的实收
+  const tc = rGMV * TS * TR;
+  const yiAt = af - tc;
+  const ad = G / RO;
+  const yiAd = ad * AS, jiAd = ad * (1 - AS);
+  return { gu, ru, rGMV, af, tc, yiAt, ad, yiAd, jiAd, pt, netGMV,
+    yiNet: yiAt - yiAd - OP, jiNet: netGMV * (1 - AR) - jiAd,
+    OP, br: netGMV * (1 - AR), ef: (AR - TS * TR) * 100, tPct: rGMV ? tc / rGMV : 0 };
+}
+
+// ============ 动态结论 ============
+function Conclusions({ mode, data }) {
+  const cs = [];
+  const ym = data.rGMV ? data.yiNet / data.rGMV : 0;
+  const tp = data.tPct * 100;
+
+  if (data.yiNet < -200000)
+    cs.push({ l: 'red', icon: '🚨', t: '方案严重亏损', txt: `乙方年亏 ${fmtW(Math.abs(data.yiNet))}，不可签约。` });
+  else if (data.yiNet < 0)
+    cs.push({ l: 'red', icon: '⚠️', t: '方案微亏', txt: `乙方年亏 ${fmtW(Math.abs(data.yiNet))}，处于亏损边缘。` });
+  else if (ym < 0.03)
+    cs.push({ l: 'orange', icon: '⚠️', t: '净利率过低', txt: `年净利 ${fmtW(data.yiNet)}，净利率仅 ${pct(ym)}，抗风险弱。` });
+  else if (ym < 0.08)
+    cs.push({ l: 'yellow', icon: '✅', t: '可接受方案', txt: `年净利 ${fmtW(data.yiNet)}，净利率 ${pct(ym)}，合理区间。` });
+  else
+    cs.push({ l: 'green', icon: '🎯', t: '高质量方案', txt: `年净利 ${fmtW(data.yiNet)}，净利率 ${pct(ym)}，方案优秀。` });
+
+  if (mode === 'joint' && data.beSplit && data.yiSplit < data.beSplit)
+    cs.push({ l: 'red', icon: '📐', t: '分成比例不足', txt: `保本需 ${data.beSplit.toFixed(1)}%，当前 ${data.yiSplit}%，锚点建议 ${Math.ceil(data.beSplit + 5)}%。` });
+  else if (mode === 'joint' && data.beSplit)
+    cs.push({ l: 'green', icon: '📐', t: '分成比例充足', txt: `当前 ${data.yiSplit}% 高于保本线 ${data.beSplit.toFixed(1)}%。` });
+
+  if (mode === 'agency' && data.beRate && data.agencyRate < data.beRate)
+    cs.push({ l: 'red', icon: '📐', t: '代理点位不足', txt: `保本需 ${data.beRate.toFixed(2)}%，当前 ${data.agencyRate}%。锚点建议 ${Math.ceil(data.beRate + 3)}%。` });
+  else if (mode === 'agency' && data.beRate)
+    cs.push({ l: 'green', icon: '📐', t: '代理点位充足', txt: `当前 ${data.agencyRate}% 超保本 ${data.beRate.toFixed(2)}%。` });
+
+  if (mode === 'agency' && data.ef < 5)
+    cs.push({ l: 'orange', icon: '👥', t: '达人成本吞噬严重', txt: `有效净点位仅 ${data.ef.toFixed(2)}%，严重压缩。` });
+
+  if (data.beGmv && data.gmv * 1e4 < data.beGmv) {
+    const gap = data.beGmv / (data.gmv * 1e4) - 1;
+    cs.push({ l: 'red', icon: '📊', t: 'GMV承诺不足', txt: `当前 ${data.gmv}万 低于保本 ${fmtW(data.beGmv)}，差 ${pct(gap)}。` });
+  }
+
+  if (data.returnRate >= 60)
+    cs.push({ l: 'red', icon: '↩️', t: '退货率畸高', txt: `${data.returnRate}% 严重侵蚀实收，建议约定超50%触发重谈。` });
+  else if (data.returnRate >= 45)
+    cs.push({ l: 'orange', icon: '↩️', t: '退货率偏高', txt: `${data.returnRate}% 偏高位，建议设退货阈值保护条款。` });
+
+  if (data.roi <= 4)
+    cs.push({ l: 'red', icon: '💸', t: 'ROI过低', txt: `ROI ${data.roi}，投流回报极差。建议设兜底条款。` });
+  else if (data.roi <= 6)
+    cs.push({ l: 'orange', icon: '💸', t: 'ROI偏低', txt: `ROI ${data.roi} 偏紧，需月度复盘。` });
+  else if (data.roi >= 12)
+    cs.push({ l: 'yellow', icon: '💡', t: 'ROI假设偏乐观', txt: `ROI ${data.roi}，建议按6-8做压力测试。` });
+
+  if (tp >= 6)
+    cs.push({ l: 'orange', icon: '👥', t: '达人成本占比高', txt: `达人占实收 ${tp.toFixed(2)}%，建议提自播至20%以内。` });
+  else if (tp >= 4)
+    cs.push({ l: 'yellow', icon: '👥', t: '达人结构合理', txt: `达人占实收 ${tp.toFixed(2)}%，结构正常。` });
+
+  if (mode === 'joint') {
+    const gr = (data.sell - data.floor) / data.sell;
+    if (gr < 0.4) cs.push({ l: 'orange', icon: '💰', t: '产品毛利率偏低', txt: `(售价-底价)/售价 仅 ${pct(gr)}，分成池子小。` });
+    else if (gr > 0.7) cs.push({ l: 'green', icon: '💰', t: '产品毛利率优秀', txt: `毛利率 ${pct(gr)}，空间充足。` });
+  }
+
+  if (data.jiaNet < 0)
+    cs.push({ l: 'red', icon: '🤝', t: '甲方亏损', txt: `甲方年亏 ${fmtW(Math.abs(data.jiaNet))}，对方不会接受。` });
+  else if (data.jiaNet < data.yiNet * 0.5 && data.yiNet > 0)
+    cs.push({ l: 'yellow', icon: '🤝', t: '甲乙利润失衡', txt: `甲方利润仅乙方 ${(data.jiaNet / data.yiNet * 100).toFixed(0)}%，对方议价权大。` });
+  else if (data.jiaNet > data.yiNet * 3 && data.yiNet > 0)
+    cs.push({ l: 'yellow', icon: '🤝', t: '甲方占利过高', txt: `甲方年利 ${fmtW(data.jiaNet)}，是乙方 ${(data.jiaNet / data.yiNet).toFixed(1)} 倍。` });
+
+  if (data.rGMV > 0 && data.OP / data.rGMV > 0.15)
+    cs.push({ l: 'orange', icon: '🏢', t: '运营成本占比高', txt: `年运营 ${fmtW(data.OP)} 占实收 ${pct(data.OP / data.rGMV)}，需做大GMV。` });
+
+  const clr = { red: ['#450a0a','#991b1b','#fecaca'], orange: ['#431407','#9a3412','#fdba74'], yellow: ['#422006','#854d0e','#fde68a'], green: ['#022c22','#065f46','#6ee7b7'] };
+  return e('div', { className: 'bg900 b1 br8 p4', style: { background: '#3b0764', borderColor: '#6b21a8' } },
+    e('div', { className: 'f ai gap2 mb3' },
+      e(IconBulb, { size: 16, className: 'tP3' }),
+      e('span', { className: 'fb tP3' }, '基于当前参数的判断结论'),
+      e('span', { className: 'txs t500' }, '(共 ' + cs.length + ' 项 · 随参数变化)')
+    ),
+    e('div', { className: 'gap3' }, cs.map((c, i) =>
+      e('div', { key: i, className: 'br4 p2h bL4', style: { background: clr[c.l][0], borderLeftColor: clr[c.l][1] } },
+        e('div', { className: 'f ais gap2' },
+          e('span', { className: 'txl' }, c.icon),
+          e('div', { className: 'fi' },
+            e('div', { className: 'fb tsm mb05', style: { color: clr[c.l][2] } }, c.t),
+            e('div', { className: 'txs', style: { color: clr[c.l][2], opacity: 0.8, lineHeight: 1.6 } }, c.txt)
+          )
+        )
+      )
+    ))
+  );
+}
+
+// ============ 联营 Tab ============
+function JointVentureTab() {
+  const [gmv, sg] = useState(1000);
+  const [rr, sr] = useState(50);
+  const [floor, sf] = useState(80);
+  const [sell, ss] = useState(200);
+  const [yiS, sy] = useState(50);
+  const [roi, sro] = useState(8);
+  const [op, so] = useState(11);
+  const [aS, sa] = useState(50);
+  const [pf, sp] = useState(5);
+  const [ts, st] = useState(20);
+  const [tr, str] = useState(18);
+
+  const par = useMemo(() => ({
+    G: gmv * 1e4, rr: 1 - rr / 100, F: floor, S: sell, Y: yiS / 100,
+    RO: roi, OP: op * 1e4 * 12, AS: aS / 100, PF: pf / 100,
+    TS: ts / 100, TR: tr / 100
+  }), [gmv, rr, floor, sell, yiS, roi, op, aS, pf, ts, tr]);
+
+  const r = useMemo(() => calcLY(par), [par]);
+
+  const beSplit = useMemo(() => r.dist <= 0 ? null : ((r.yiAd + r.OP) / r.dist) * 100, [r]);
+  const beGmv = useMemo(() => {
+    const mr = (sell - floor) / sell;
+    const rr2 = 1 - rr / 100;
+    const k = rr2 * (mr * yiS/100 - (ts/100)*(tr/100)*yiS/100 - (pf/100)*yiS/100) - (aS/100)/roi;
+    return k > 0 ? (op * 1e4 * 12) / k : null;
+  }, [sell, floor, rr, yiS, aS, ts, tr, pf, roi, op]);
+
+  const ssData = useMemo(() => [35, 40, 45, 50, 55, 60, 65, 70].map(s => {
+    const c = calcLY({ ...par, Y: s / 100 });
+    return { x: s + '%', '乙方': Math.round(c.yiNet / 1e4), '甲方': Math.round(c.jiNet / 1e4) };
+  }), [par]);
+
+  const gsData = useMemo(() => [500, 800, 1000, 1500, 2000, 2500, 3000, 4000, 5000].map(g => {
+    const c = calcLY({ ...par, G: g * 1e4 });
+    return { x: g + '万', '乙方': Math.round(c.yiNet / 1e4), '甲方': Math.round(c.jiNet / 1e4) };
+  }), [par]);
+
+  const data = { ...r, gmv, returnRate: rr, floor, sell, yiSplit: yiS, roi, op,
+    talentShare: ts, talentRate: tr, beSplit, beGmv, jiaNet: r.jiNet };
+
+  return e('div', null,
+    r.yiNet < 0 && e('div', { className: 'bg950 bL4 br8 p3 f ais gap3 mb3', style: { background: '#450a0a' } },
+      e(IconAlert, { size: 20, className: 'tR4' }),
+      e('div', null,
+        e('div', { className: 'fb tR3 mb05' }, '⚠ 乙方年净亏 ' + fmtW(Math.abs(r.yiNet))),
+        e('div', { className: 'txs tR3' }, '需分成 ' + (beSplit ? beSplit.toFixed(1) + '%' : 'N/A') + ' 或 GMV ' + (beGmv ? fmtW(beGmv) : 'N/A') + ' 才保本')
+      )
+    ),
+
+    // 参数区
+    e('div', { className: 'bg900 b1 br8 p4 mb3' },
+      e('div', { className: 'f ai gap2 mb3' }, e(IconCalc, { size: 16, className: 'tB4' }), e('span', { className: 'fsb t100 tsm' }, '核心参数')),
+      e('div', null,
+        e(Sec, { text: '业务规模' }),
+        e('div', { className: 'g gc1 gc2 gap2 mb3' },
+          e(NumInput, { label: '年度GMV (万元)', value: gmv, onChange: sg, min: 100, max: 200000, step: 50, suffix: '万' }),
+          e(NumInput, { label: '退货率', value: rr, onChange: sr, min: 10, max: 90, step: 1, suffix: '%' })
+        ),
+        e(Sec, { text: '产品与分成' }),
+        e('div', { className: 'g gc1 gc2 gap2 mb3' },
+          e(NumInput, { label: '产品底价 (元/件)', value: floor, onChange: sf, min: 10, max: 500, step: 1, suffix: '元' }),
+          e(NumInput, { label: '直播售价 (元/件)', value: sell, onChange: ss, min: 10, max: 500, step: 1, suffix: '元' }),
+          e(NumInput, { label: '乙方分成比例', value: yiS, onChange: sy, min: 30, max: 70, step: 1, suffix: '%', hint: '毛利分成' }),
+          e(NumInput, { label: '平台扣点', value: pf, onChange: sp, min: 0, max: 10, step: 1, suffix: '%' })
+        ),
+        e(Sec, { text: '投流与成本' }),
+        e('div', { className: 'g gc1 gc2 gap2 mb3' },
+          e(NumInput, { label: '投流 ROI', value: roi, onChange: sro, min: 2, max: 30, step: 1 }),
+          e(NumInput, { label: '乙方投流分担', value: aS, onChange: sa, min: 0, max: 100, step: 1, suffix: '%' }),
+          e(NumInput, { label: '月运营成本 (万元)', value: op, onChange: so, min: 5, max: 200, step: 1, suffix: '万' })
+        ),
+        e(Sec, { text: '达人维度' }),
+        e('div', { className: 'g gc1 gc2 gap2' },
+          e(NumInput, { label: '达人 GMV 占比', value: ts, onChange: st, min: 0, max: 100, step: 1, suffix: '%' }),
+          e(NumInput, { label: '达人平均点位', value: tr, onChange: str, min: 1, max: 90, step: 1, suffix: '%' })
+        ),
+        e('div', { className: 'mt2 txs t500 bg950 b1 br4 px2 py1h' },
+          '💡 达人成本占实收 = ',
+          e('span', { className: 'fm tP3' }, ts + '% × ' + tr + '% = ' + (ts * tr / 100).toFixed(2) + '%'),
+          ' → 年支出 ', e('span', { className: 'fm tP3' }, fmtW(r.tc))
+        )
+      )
+    ),
+
+    // 统计卡片
+    e('div', { className: 'g gc2 gap2 mb3' },
+      e(Card, { label: '实销件数', value: fmt(r.ru) + '件', sub: '成交 ' + fmt(r.gu) + '件' }),
+      e(Card, { label: '总毛利', value: fmtW(r.gm), sub: '单件毛利 ¥' + (sell - floor), color: 'blue' }),
+      e(Card, { label: '达人总成本', value: fmtW(r.tc), sub: '占实收 ' + pct(r.tPct), color: 'purple' }),
+      e(Card, { label: '投流总支出', value: fmtW(r.ad), sub: 'ROI ' + roi, color: 'orange' })
+    ),
+
+    // 双方利润
+    e('div', { className: 'g gc1 gc2 gap3 mb3' },
+      e('div', { className: 'b1 br8 p4', style: { background: r.yiNet >= 0 ? '#022c22' : '#450a0a', borderColor: r.yiNet >= 0 ? '#065f46' : '#991b1b' } },
+        e('div', { className: 'f jb mb2' }, e('span', { className: 't100 fb tsm' }, '乙方（我方）'), r.yiNet >= 0 ? e(IconUp, { size: 18, className: 'tG4' }) : e(IconDown, { size: 18, className: 'tR4' })),
+        e('div', null,
+          e('div', { className: 'txs t500 mb1' }, '可分配毛利（已扣达人+平台费）= ' + fmtW(r.dist)),
+          e(Row, { label: '毛利分成 (' + yiS + '%)', value: r.yiS }),
+          e(Row, { label: '投流分担 (' + aS + '%)', value: -r.yiAd }),
+          e(Row, { label: '年运营成本', value: -r.OP }),
+          e('div', { className: 'bt pt1h mt1h' },
+            e(Row, { label: '年度净利润', value: r.yiNet, bold: true }),
+            e('div', { className: 'txs t400 mt1' }, '月均 ¥' + fmt(r.yiNet / 12) + ' · 净利率 ' + pct(r.rGMV ? r.yiNet / r.rGMV : 0))
+          )
+        )
+      ),
+      e('div', { className: 'b1 br8 p4', style: { background: r.jiNet >= 0 ? '#172554' : '#450a0a', borderColor: r.jiNet >= 0 ? '#1e40af' : '#991b1b' } },
+        e('div', { className: 'f jb mb2' }, e('span', { className: 't100 fb tsm' }, '甲方（品牌方）'), r.jiNet >= 0 ? e(IconUp, { size: 18, className: 'tB4' }) : e(IconDown, { size: 18, className: 'tR4' })),
+        e('div', null,
+          e('div', { className: 'txs t500 mb1' }, '产品端利润已含在 ¥' + floor + ' 底价内'),
+          e(Row, { label: '毛利分成 (' + (100 - yiS) + '%)', value: r.jiS }),
+          e(Row, { label: '投流分担 (' + (100 - aS) + '%)', value: -r.jiAd }),
+          e('div', { className: 'bt pt1h mt1h' },
+            e(Row, { label: '年度净利润', value: r.jiNet, bold: true }),
+            e('div', { className: 'txs t400 mt1' }, '月均 ¥' + fmt(r.jiNet / 12) + ' · 加产品端利润后更高')
+          )
+        )
+      )
+    ),
+
+    // 图表
+    e('div', { className: 'g gc1 gc2 gap3 mb3' },
+      e('div', { className: 'bg900 b1 br8 p4' },
+        e('div', { className: 'txs fsb t200 mb2' }, '📊 分成比例敏感性（万元 · 乙方红色=亏损）'),
+        e('div', { className: 'wf h56' },
+          e(ResponsiveContainer, { width: '100%', height: '100%' },
+            e(BarChart, { data: ssData },
+              e(CartesianGrid, { strokeDasharray: '3 3', stroke: '#27272a' }),
+              e(XAxis, { dataKey: 'x', stroke: '#a1a1aa', tick: { fontSize: 10 } }),
+              e(YAxis, { stroke: '#a1a1aa', tick: { fontSize: 10 } }),
+              e(Tooltip, { contentStyle: { background: '#18181b', border: '1px solid #3f3f46', fontSize: '12px' } }),
+              e(Legend, { wrapperStyle: { fontSize: '11px' } }),
+              e(ReferenceLine, { y: 0, stroke: '#ef4444', strokeWidth: 1.5 }),
+              e(Bar, { dataKey: '乙方' }, ssData.map((e2, i2) => e(Cell, { key: i2, fill: e2['乙方'] < 0 ? '#ef4444' : '#10b981' }))),
+              e(Bar, { dataKey: '甲方', fill: '#3b82f6' })
+            )
+          )
+        )
+      ),
+      e('div', { className: 'bg900 b1 br8 p4' },
+        e('div', { className: 'txs fsb t200 mb2' }, '📈 GMV规模敏感性（万元）'),
+        e('div', { className: 'wf h56' },
+          e(ResponsiveContainer, { width: '100%', height: '100%' },
+            e(LineChart, { data: gsData },
+              e(CartesianGrid, { strokeDasharray: '3 3', stroke: '#27272a' }),
+              e(XAxis, { dataKey: 'x', stroke: '#a1a1aa', tick: { fontSize: 10 } }),
+              e(YAxis, { stroke: '#a1a1aa', tick: { fontSize: 10 } }),
+              e(Tooltip, { contentStyle: { background: '#18181b', border: '1px solid #3f3f46', fontSize: '12px' } }),
+              e(Legend, { wrapperStyle: { fontSize: '11px' } }),
+              e(ReferenceLine, { y: 0, stroke: '#ef4444', strokeWidth: 1.5 }),
+              e(Line, { type: 'monotone', dataKey: '乙方', stroke: '#10b981', strokeWidth: 2, dot: p => { if(!p||!p.payload)return null; const v=p.payload['乙方']; return e('circle',{cx:p.cx,cy:p.cy,r:4,fill:v<0?'#ef4444':'#10b981',stroke:v<0?'#991b1b':'#059669',strokeWidth:1}); } }),
+              e(Line, { type: 'monotone', dataKey: '甲方', stroke: '#3b82f6', strokeWidth: 2, dot: { r: 3 } })
+            )
+          )
+        )
+      )
+    ),
+
+    e(Conclusions, { mode: 'joint', data })
+  );
+}
+
+// ============ 代理 Tab ============
+function AgencyTab() {
+  const [gmv, sg] = useState(1000);
+  const [rr, sr] = useState(50);
+  const [sell, ss] = useState(200);
+  const [ar, sa] = useState(25);
+  const [roi, sro] = useState(8);
+  const [op, so] = useState(11);
+  const [aS, sas] = useState(50);
+  const [pf, sp] = useState(5);
+  const [ts, st] = useState(20);
+  const [tr, str] = useState(18);
+
+  const par = useMemo(() => ({
+    G: gmv * 1e4, rr: 1 - rr / 100, S: sell, AR: ar / 100,
+    RO: roi, OP: op * 1e4 * 12, AS: aS / 100, PF: pf / 100,
+    TS: ts / 100, TR: tr / 100
+  }), [gmv, rr, sell, ar, roi, op, aS, pf, ts, tr]);
+
+  const r = useMemo(() => calcDL(par), [par]);
+
+  const beRate = useMemo(() => {
+    const real = gmv * 1e4 * (1 - rr / 100);
+    const netReal = real * (1 - pf / 100);
+    return netReal <= 0 ? null : ((r.tc + r.yiAd + r.OP) / netReal) * 100;
+  }, [gmv, rr, pf, r.tc, r.yiAd, r.OP]);
+
+  const beGmv = useMemo(() => {
+    const rr2 = 1 - rr / 100;
+    const k = rr2 * (ar/100*(1-pf/100) - (ts/100)*(tr/100)) - (aS/100)/roi;
+    return k > 0 ? (op * 1e4 * 12) / k : null;
+  }, [rr, ar, pf, ts, tr, aS, roi, op]);
+
+  const csData = useMemo(() => {
+    const a = [];
+    for (let s = 15; s <= 35; s += 2) {
+      const c = calcDL({ ...par, AR: s / 100 });
+      a.push({ x: s + '%', '乙方': Math.round(c.yiNet / 1e4), '甲方': Math.round(c.jiNet / 1e4) });
+    }
+    return a;
+  }, [par]);
+
+  const gsData = useMemo(() => [500, 800, 1000, 1500, 2000, 2500, 3000, 4000, 5000].map(g => {
+    const c = calcDL({ ...par, G: g * 1e4 });
+    return { x: g + '万', '乙方': Math.round(c.yiNet / 1e4), '甲方': Math.round(c.jiNet / 1e4) };
+  }), [par]);
+
+  const data = { ...r, gmv, returnRate: rr, sell, agencyRate: ar, roi, op,
+    beRate, beGmv, ef: r.ef, jiaNet: r.jiNet, talentShare: ts, talentRate: tr };
+
+  return e('div', null,
+    r.yiNet < 0 && e('div', { className: 'bg950 bL4 br8 p3 f ais gap3 mb3', style: { background: '#450a0a' } },
+      e(IconAlert, { size: 20, className: 'tR4' }),
+      e('div', null,
+        e('div', { className: 'fb tR3 mb05' }, '⚠ 乙方年净亏 ' + fmtW(Math.abs(r.yiNet))),
+        e('div', { className: 'txs tR3' }, '需代理点位 ' + (beRate ? beRate.toFixed(1) + '%' : 'N/A') + ' 或 GMV ' + (beGmv ? fmtW(beGmv) : 'N/A') + ' 才保本')
+      )
+    ),
+
+    e('div', { className: 'bg900 b1 br8 p4 mb3' },
+      e('div', { className: 'f ai gap2 mb3' }, e(IconCalc, { size: 16, className: 'tB4' }), e('span', { className: 'fsb t100 tsm' }, '核心参数')),
+      e('div', null,
+        e(Sec, { text: '业务规模' }),
+        e('div', { className: 'g gc1 gc2 gap2 mb3' },
+          e(NumInput, { label: '年度GMV (万元)', value: gmv, onChange: sg, min: 100, max: 200000, step: 50, suffix: '万' }),
+          e(NumInput, { label: '退货率', value: rr, onChange: sr, min: 10, max: 90, step: 1, suffix: '%' })
+        ),
+        e(Sec, { text: '产品与代理' }),
+        e('div', { className: 'g gc1 gc2 gap2 mb3' },
+          e(NumInput, { label: '直播售价 (元/件)', value: sell, onChange: ss, min: 10, max: 500, step: 1, suffix: '元' }),
+          e(NumInput, { label: '代理点位 (实收GMV%)', value: ar, onChange: sa, min: 15, max: 35, step: 1, suffix: '%', hint: '15-35%' }),
+          e(NumInput, { label: '平台扣点', value: pf, onChange: sp, min: 0, max: 10, step: 1, suffix: '%' })
+        ),
+        e(Sec, { text: '投流与成本' }),
+        e('div', { className: 'g gc1 gc2 gap2 mb3' },
+          e(NumInput, { label: '投流 ROI', value: roi, onChange: sro, min: 2, max: 30, step: 1 }),
+          e(NumInput, { label: '乙方投流分担', value: aS, onChange: sas, min: 0, max: 100, step: 1, suffix: '%' }),
+          e(NumInput, { label: '月运营成本 (万元)', value: op, onChange: so, min: 5, max: 200, step: 1, suffix: '万' })
+        ),
+        e(Sec, { text: '达人维度' }),
+        e('div', { className: 'g gc1 gc2 gap2' },
+          e(NumInput, { label: '达人 GMV 占比', value: ts, onChange: st, min: 10, max: 30, step: 1, suffix: '%' }),
+          e(NumInput, { label: '达人平均点位', value: tr, onChange: str, min: 13, max: 25, step: 1, suffix: '%' })
+        ),
+        e('div', { className: 'mt2 txs t500 bg950 b1 br4 px2 py1h' },
+          '💡 代理点位 ', e('span', { className: 'fm tC3' }, ar + '%'),
+          ' − 达人成本 ', e('span', { className: 'fm tP3' }, (ts * tr / 100).toFixed(2) + '%'),
+          ' = 有效净点位 ', e('span', { className: 'fm fb ' + (r.ef > 0 ? 'tG3' : 'tR3') }, r.ef.toFixed(2) + '%')
+        )
+      )
+    ),
+
+    e('div', { className: 'g gc2 gap2 mb3' },
+      e(Card, { label: '实销件数', value: fmt(r.ru) + '件', sub: '成交 ' + fmt(r.gu) + '件' }),
+      e(Card, { label: '代理费收入', value: fmtW(r.af), sub: '(实收GMV-平台费)×' + ar + '%', color: 'green' }),
+      e(Card, { label: '达人总成本', value: fmtW(r.tc), sub: '占实收 ' + pct(r.tPct), color: 'purple' }),
+      e(Card, { label: '投流总支出', value: fmtW(r.ad), sub: 'ROI ' + roi, color: 'orange' })
+    ),
+
+    e('div', { className: 'g gc1 gc2 gap3 mb3' },
+      e('div', { className: 'b1 br8 p4', style: { background: r.yiNet >= 0 ? '#022c22' : '#450a0a', borderColor: r.yiNet >= 0 ? '#065f46' : '#991b1b' } },
+        e('div', { className: 'f jb mb2' }, e('span', { className: 't100 fb tsm' }, '乙方（我方）'), r.yiNet >= 0 ? e(IconUp, { size: 18, className: 'tG4' }) : e(IconDown, { size: 18, className: 'tR4' })),
+        e('div', null,
+          e(Row, { label: '代理费总收入', value: r.af }),
+          e(Row, { label: '付达人佣金', value: -r.tc }),
+          e(Row, { label: '投流分担 (' + aS + '%)', value: -r.yiAd }),
+          e(Row, { label: '年运营成本', value: -r.OP }),
+          e('div', { className: 'bt pt1h mt1h' },
+            e(Row, { label: '年度净利润', value: r.yiNet, bold: true }),
+            e('div', { className: 'txs t400 mt1' }, '月均 ¥' + fmt(r.yiNet / 12) + ' · 净利率 ' + pct(r.rGMV ? r.yiNet / r.rGMV : 0))
+          )
+        )
+      ),
+      e('div', { className: 'b1 br8 p4', style: { background: r.jiNet >= 0 ? '#172554' : '#450a0a', borderColor: r.jiNet >= 0 ? '#1e40af' : '#991b1b' } },
+        e('div', { className: 'f jb mb2' }, e('span', { className: 't100 fb tsm' }, '甲方（品牌方）'), r.jiNet >= 0 ? e(IconUp, { size: 18, className: 'tB4' }) : e(IconDown, { size: 18, className: 'tR4' })),
+        e('div', null,
+          e(Row, { label: '品牌净收入 (扣平台费后-佣金)', value: r.br }),
+          e(Row, { label: '投流分担 (' + (100 - aS) + '%)', value: -r.jiAd }),
+          e('div', { className: 'bt pt1h mt1h' },
+            e(Row, { label: '净收入（未扣产品成本）', value: r.jiNet, bold: true }),
+            e('div', { className: 'txs t400 mt1' }, '月均 ¥' + fmt(r.jiNet / 12) + ' · 不含产品成本')
+          )
+        )
+      )
+    ),
+
+    e('div', { className: 'g gc1 gc2 gap3 mb3' },
+      e('div', { className: 'bg900 b1 br8 p4' },
+        e('div', { className: 'txs fsb t200 mb2' }, '📊 代理点位敏感性（万元 · 乙方红色=亏损）'),
+        e('div', { className: 'wf h56' },
+          e(ResponsiveContainer, { width: '100%', height: '100%' },
+            e(BarChart, { data: csData },
+              e(CartesianGrid, { strokeDasharray: '3 3', stroke: '#27272a' }),
+              e(XAxis, { dataKey: 'x', stroke: '#a1a1aa', tick: { fontSize: 10 } }),
+              e(YAxis, { stroke: '#a1a1aa', tick: { fontSize: 10 } }),
+              e(Tooltip, { contentStyle: { background: '#18181b', border: '1px solid #3f3f46', fontSize: '12px' } }),
+              e(Legend, { wrapperStyle: { fontSize: '11px' } }),
+              e(ReferenceLine, { y: 0, stroke: '#ef4444', strokeWidth: 1.5 }),
+              e(Bar, { dataKey: '乙方' }, csData.map((e2, i2) => e(Cell, { key: i2, fill: e2['乙方'] < 0 ? '#ef4444' : '#10b981' }))),
+              e(Bar, { dataKey: '甲方', fill: '#3b82f6' })
+            )
+          )
+        )
+      ),
+      e('div', { className: 'bg900 b1 br8 p4' },
+        e('div', { className: 'txs fsb t200 mb2' }, '📈 GMV规模敏感性（万元）'),
+        e('div', { className: 'wf h56' },
+          e(ResponsiveContainer, { width: '100%', height: '100%' },
+            e(LineChart, { data: gsData },
+              e(CartesianGrid, { strokeDasharray: '3 3', stroke: '#27272a' }),
+              e(XAxis, { dataKey: 'x', stroke: '#a1a1aa', tick: { fontSize: 10 } }),
+              e(YAxis, { stroke: '#a1a1aa', tick: { fontSize: 10 } }),
+              e(Tooltip, { contentStyle: { background: '#18181b', border: '1px solid #3f3f46', fontSize: '12px' } }),
+              e(Legend, { wrapperStyle: { fontSize: '11px' } }),
+              e(ReferenceLine, { y: 0, stroke: '#ef4444', strokeWidth: 1.5 }),
+              e(Line, { type: 'monotone', dataKey: '乙方', stroke: '#10b981', strokeWidth: 2, dot: p => { if(!p||!p.payload)return null; const v=p.payload['乙方']; return e('circle',{cx:p.cx,cy:p.cy,r:4,fill:v<0?'#ef4444':'#10b981',stroke:v<0?'#991b1b':'#059669',strokeWidth:1}); } }),
+              e(Line, { type: 'monotone', dataKey: '甲方', stroke: '#3b82f6', strokeWidth: 2, dot: { r: 3 } })
+            )
+          )
+        )
+      )
+    ),
+
+    e(Conclusions, { mode: 'agency', data })
+  );
+}
+
+// ============ 主入口 ============
+const models = [
+  { id: 'joint',  label: '🤝 联营模型', sub: '按毛利分成' },
+  { id: 'agency', label: '📦 代理模型', sub: '按佣金收费' },
+];
+
+function App() {
+  const [tab, setTab] = useState('joint');
+  return e('div', { className: 'mh bg950 t100 p3' },
+    e('div', { className: 'mb3' },
+      e('h1', { className: 't2xl fb t50 mb05' }, '合作模型测算'),
+      e('p', { className: 'txs t400' }, '联营分成 · 代理佣金 · 含达人维度 · 动态判断结论')
+    ),
+    e('div', { className: 'tabs' },
+      models.map(m => e('button', {
+        key: m.id, onClick: () => setTab(m.id),
+        className: 'tb' + (tab === m.id ? ' on' : '')
+      }, m.label, ' ', e('span', { className: 'txs t500' }, m.sub)))
+    ),
+    tab === 'joint' ? e(JointVentureTab) : e(AgencyTab)
+  );
+}
+
+createRoot(document.getElementById('root')).render(e(App));
+</script>
+</body>
+</html>
