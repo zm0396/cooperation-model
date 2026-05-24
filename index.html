@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>合作模型测算 - 探跃</title>
+<title>合作模型测算——探跃高管专用版</title>
 <script type="importmap">
 {
   "imports": {
@@ -117,6 +117,8 @@ input[type=range]::-webkit-slider-thumb { width: 16px; height: 16px; border-radi
 .tb.on { background: #172554; color: #93c5fd; }
 
 @media (min-width: 768px) { .gc2 { grid-template-columns: 1fr 1fr; } }
+.recharts-tooltip-label, .recharts-tooltip-item, .recharts-tooltip-item-list li { color: #f4f4f5 !important; }
+.recharts-default-tooltip { background: #18181b !important; border: 1px solid #3f3f46 !important; }
 </style>
 </head>
 <body>
@@ -667,7 +669,7 @@ function App() {
   const [tab, setTab] = useState('joint');
   return e('div', { className: 'mh bg950 t100 p3' },
     e('div', { className: 'mb3' },
-      e('h1', { className: 't2xl fb t50 mb05' }, '合作模型测算'),
+      e('h1', { className: 't2xl fb t50 mb05' }, '合作模型测算——探跃高管专用版'),
       e('p', { className: 'txs t400' }, '联营分成 · 代理佣金 · 含达人维度 · 动态判断结论')
     ),
     e('div', { className: 'tabs' },
