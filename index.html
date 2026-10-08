@@ -209,7 +209,7 @@ function Row({ label, value, bold }) {
 
 // ============ 核心计算函数 ============
 function calcLY(p) {
-  const { G, rr, F, S, Y, RO, OP, AS, PF, TS, TR } = p;
+  const { G, rr, F, S, Y, RO, OP, OPS, AS, PF, TS, TR } = p;
   const gu = G / S, ru = gu * rr, rGMV = ru * S;
   const gm = ru * (S - F);
   const tc = rGMV * TS * TR;
@@ -218,12 +218,13 @@ function calcLY(p) {
   const ad = G / RO;
   const yiS = dist * Y, jiS = dist * (1 - Y);
   const yiAd = ad * AS, jiAd = ad * (1 - AS);
-  return { gu, ru, rGMV, gm, tc, dist, ad, pt, yiS, jiS, yiAd, jiAd,
-    yiNet: yiS - yiAd - OP, jiNet: jiS - jiAd, OP, tPct: rGMV ? tc / rGMV : 0 };
+  const yiOP = OP * OPS, jiOP = OP * (1 - OPS); // 运营成本按约定比例双方分担
+  return { gu, ru, rGMV, gm, tc, dist, ad, pt, yiS, jiS, yiAd, jiAd, yiOP, jiOP,
+    yiNet: yiS - yiAd - yiOP, jiNet: jiS - jiAd - jiOP, OP, tPct: rGMV ? tc / rGMV : 0 };
 }
 
 function calcDL(p) {
-  const { G, rr, S, AR, RO, OP, AS, PF, TS, TR } = p;
+  const { G, rr, S, AR, RO, OP, OPS, AS, PF, TS, TR } = p;
   const gu = G / S, ru = gu * rr, rGMV = ru * S;
   const pt = rGMV * PF;
   const netGMV = rGMV - pt; // 平台扣点双方共担，从实收中先扣
@@ -232,8 +233,9 @@ function calcDL(p) {
   const yiAt = af - tc;
   const ad = G / RO;
   const yiAd = ad * AS, jiAd = ad * (1 - AS);
-  return { gu, ru, rGMV, af, tc, yiAt, ad, yiAd, jiAd, pt, netGMV,
-    yiNet: yiAt - yiAd - OP, jiNet: netGMV * (1 - AR) - jiAd,
+  const yiOP = OP * OPS, jiOP = OP * (1 - OPS); // 运营成本按约定比例双方分担
+  return { gu, ru, rGMV, af, tc, yiAt, ad, yiAd, jiAd, pt, netGMV, yiOP, jiOP,
+    yiNet: yiAt - yiAd - yiOP, jiNet: netGMV * (1 - AR) - jiAd - jiOP,
     OP, br: netGMV * (1 - AR), ef: (AR - TS * TR) * 100, tPct: rGMV ? tc / rGMV : 0 };
 }
 
@@ -335,6 +337,7 @@ function JointVentureTab() {
   const [yiS, sy] = useState(50);
   const [roi, sro] = useState(8);
   const [op, so] = useState(11);
+  const [opYi, sopYi] = useState(100);
   const [aS, sa] = useState(50);
   const [pf, sp] = useState(5);
   const [ts, st] = useState(20);
@@ -342,19 +345,19 @@ function JointVentureTab() {
 
   const par = useMemo(() => ({
     G: gmv * 1e4, rr: 1 - rr / 100, F: floor, S: sell, Y: yiS / 100,
-    RO: roi, OP: op * 1e4 * 12, AS: aS / 100, PF: pf / 100,
+    RO: roi, OP: op * 1e4 * 12, OPS: opYi / 100, AS: aS / 100, PF: pf / 100,
     TS: ts / 100, TR: tr / 100
-  }), [gmv, rr, floor, sell, yiS, roi, op, aS, pf, ts, tr]);
+  }), [gmv, rr, floor, sell, yiS, roi, op, opYi, aS, pf, ts, tr]);
 
   const r = useMemo(() => calcLY(par), [par]);
 
-  const beSplit = useMemo(() => r.dist <= 0 ? null : ((r.yiAd + r.OP) / r.dist) * 100, [r]);
+  const beSplit = useMemo(() => r.dist <= 0 ? null : ((r.yiAd + r.yiOP) / r.dist) * 100, [r]);
   const beGmv = useMemo(() => {
     const mr = (sell - floor) / sell;
     const rr2 = 1 - rr / 100;
     const k = rr2 * (mr * yiS/100 - (ts/100)*(tr/100)*yiS/100 - (pf/100)*yiS/100) - (aS/100)/roi;
-    return k > 0 ? (op * 1e4 * 12) / k : null;
-  }, [sell, floor, rr, yiS, aS, ts, tr, pf, roi, op]);
+    return k > 0 ? (op * 1e4 * 12 * opYi / 100) / k : null;
+  }, [sell, floor, rr, yiS, aS, ts, tr, pf, roi, op, opYi]);
 
   const ssData = useMemo(() => [35, 40, 45, 50, 55, 60, 65, 70].map(s => {
     const c = calcLY({ ...par, Y: s / 100 });
@@ -394,11 +397,16 @@ function JointVentureTab() {
           e(NumInput, { label: '乙方分成比例', value: yiS, onChange: sy, min: 30, max: 70, step: 1, suffix: '%', hint: '毛利分成' }),
           e(NumInput, { label: '平台扣点', value: pf, onChange: sp, min: 0, max: 10, step: 1, suffix: '%' })
         ),
-        e(Sec, { text: '投流与成本' }),
+        e(Sec, { text: '投流' }),
         e('div', { className: 'g gc1 gc2 gap2 mb3' },
           e(NumInput, { label: '投流 ROI', value: roi, onChange: sro, min: 2, max: 30, step: 1 }),
-          e(NumInput, { label: '乙方投流分担', value: aS, onChange: sa, min: 0, max: 100, step: 1, suffix: '%' }),
-          e(NumInput, { label: '月运营成本 (万元)', value: op, onChange: so, min: 5, max: 200, step: 1, suffix: '万' })
+          e(NumInput, { label: '乙方投流分担', value: aS, onChange: sa, min: 0, max: 100, step: 1, suffix: '%' })
+        ),
+        e(Sec, { text: '运营成本（双方分担）' }),
+        e('div', { className: 'g gc1 gc2 gap2 mb3' },
+          e(NumInput, { label: '月总成本 (万元)', value: op, onChange: so, min: 5, max: 200, step: 1, suffix: '万' }),
+          e(NumInput, { label: '乙方比例', value: opYi, onChange: sopYi, min: 0, max: 100, step: 1, suffix: '%' }),
+          e(NumInput, { label: '甲方比例', value: 100 - opYi, onChange: v => sopYi(100 - v), min: 0, max: 100, step: 1, suffix: '%' })
         ),
         e(Sec, { text: '达人维度' }),
         e('div', { className: 'g gc1 gc2 gap2' },
@@ -429,7 +437,7 @@ function JointVentureTab() {
           e('div', { className: 'txs t500 mb1' }, '可分配毛利（已扣达人+平台费）= ' + fmtW(r.dist)),
           e(Row, { label: '毛利分成 (' + yiS + '%)', value: r.yiS }),
           e(Row, { label: '投流分担 (' + aS + '%)', value: -r.yiAd }),
-          e(Row, { label: '年运营成本', value: -r.OP }),
+          e(Row, { label: '运营成本分担 (' + opYi + '%)', value: -r.yiOP }),
           e('div', { className: 'bt pt1h mt1h' },
             e(Row, { label: '年度净利润', value: r.yiNet, bold: true }),
             e('div', { className: 'txs t400 mt1' }, '月均 ¥' + fmt(r.yiNet / 12) + ' · 净利率 ' + pct(r.rGMV ? r.yiNet / r.rGMV : 0))
@@ -442,6 +450,7 @@ function JointVentureTab() {
           e('div', { className: 'txs t500 mb1' }, '产品端利润已含在 ¥' + floor + ' 底价内'),
           e(Row, { label: '毛利分成 (' + (100 - yiS) + '%)', value: r.jiS }),
           e(Row, { label: '投流分担 (' + (100 - aS) + '%)', value: -r.jiAd }),
+          e(Row, { label: '运营成本分担 (' + (100 - opYi) + '%)', value: -r.jiOP }),
           e('div', { className: 'bt pt1h mt1h' },
             e(Row, { label: '年度净利润', value: r.jiNet, bold: true }),
             e('div', { className: 'txs t400 mt1' }, '月均 ¥' + fmt(r.jiNet / 12) + ' · 加产品端利润后更高')
@@ -500,6 +509,7 @@ function AgencyTab() {
   const [ar, sa] = useState(25);
   const [roi, sro] = useState(8);
   const [op, so] = useState(11);
+  const [opYi, sopYi] = useState(100);
   const [aS, sas] = useState(50);
   const [pf, sp] = useState(5);
   const [ts, st] = useState(20);
@@ -507,23 +517,23 @@ function AgencyTab() {
 
   const par = useMemo(() => ({
     G: gmv * 1e4, rr: 1 - rr / 100, S: sell, AR: ar / 100,
-    RO: roi, OP: op * 1e4 * 12, AS: aS / 100, PF: pf / 100,
+    RO: roi, OP: op * 1e4 * 12, OPS: opYi / 100, AS: aS / 100, PF: pf / 100,
     TS: ts / 100, TR: tr / 100
-  }), [gmv, rr, sell, ar, roi, op, aS, pf, ts, tr]);
+  }), [gmv, rr, sell, ar, roi, op, opYi, aS, pf, ts, tr]);
 
   const r = useMemo(() => calcDL(par), [par]);
 
   const beRate = useMemo(() => {
     const real = gmv * 1e4 * (1 - rr / 100);
     const netReal = real * (1 - pf / 100);
-    return netReal <= 0 ? null : ((r.tc + r.yiAd + r.OP) / netReal) * 100;
-  }, [gmv, rr, pf, r.tc, r.yiAd, r.OP]);
+    return netReal <= 0 ? null : ((r.tc + r.yiAd + r.yiOP) / netReal) * 100;
+  }, [gmv, rr, pf, r.tc, r.yiAd, r.yiOP]);
 
   const beGmv = useMemo(() => {
     const rr2 = 1 - rr / 100;
     const k = rr2 * (ar/100*(1-pf/100) - (ts/100)*(tr/100)) - (aS/100)/roi;
-    return k > 0 ? (op * 1e4 * 12) / k : null;
-  }, [rr, ar, pf, ts, tr, aS, roi, op]);
+    return k > 0 ? (op * 1e4 * 12 * opYi / 100) / k : null;
+  }, [rr, ar, pf, ts, tr, aS, roi, op, opYi]);
 
   const csData = useMemo(() => {
     const a = [];
@@ -565,11 +575,16 @@ function AgencyTab() {
           e(NumInput, { label: '代理点位 (实收GMV%)', value: ar, onChange: sa, min: 15, max: 35, step: 1, suffix: '%', hint: '15-35%' }),
           e(NumInput, { label: '平台扣点', value: pf, onChange: sp, min: 0, max: 10, step: 1, suffix: '%' })
         ),
-        e(Sec, { text: '投流与成本' }),
+        e(Sec, { text: '投流' }),
         e('div', { className: 'g gc1 gc2 gap2 mb3' },
           e(NumInput, { label: '投流 ROI', value: roi, onChange: sro, min: 2, max: 30, step: 1 }),
-          e(NumInput, { label: '乙方投流分担', value: aS, onChange: sas, min: 0, max: 100, step: 1, suffix: '%' }),
-          e(NumInput, { label: '月运营成本 (万元)', value: op, onChange: so, min: 5, max: 200, step: 1, suffix: '万' })
+          e(NumInput, { label: '乙方投流分担', value: aS, onChange: sas, min: 0, max: 100, step: 1, suffix: '%' })
+        ),
+        e(Sec, { text: '运营成本（双方分担）' }),
+        e('div', { className: 'g gc1 gc2 gap2 mb3' },
+          e(NumInput, { label: '月总成本 (万元)', value: op, onChange: so, min: 5, max: 200, step: 1, suffix: '万' }),
+          e(NumInput, { label: '乙方比例', value: opYi, onChange: sopYi, min: 0, max: 100, step: 1, suffix: '%' }),
+          e(NumInput, { label: '甲方比例', value: 100 - opYi, onChange: v => sopYi(100 - v), min: 0, max: 100, step: 1, suffix: '%' })
         ),
         e(Sec, { text: '达人维度' }),
         e('div', { className: 'g gc1 gc2 gap2' },
@@ -598,7 +613,7 @@ function AgencyTab() {
           e(Row, { label: '代理费总收入', value: r.af }),
           e(Row, { label: '付达人佣金', value: -r.tc }),
           e(Row, { label: '投流分担 (' + aS + '%)', value: -r.yiAd }),
-          e(Row, { label: '年运营成本', value: -r.OP }),
+          e(Row, { label: '运营成本分担 (' + opYi + '%)', value: -r.yiOP }),
           e('div', { className: 'bt pt1h mt1h' },
             e(Row, { label: '年度净利润', value: r.yiNet, bold: true }),
             e('div', { className: 'txs t400 mt1' }, '月均 ¥' + fmt(r.yiNet / 12) + ' · 净利率 ' + pct(r.rGMV ? r.yiNet / r.rGMV : 0))
@@ -610,6 +625,7 @@ function AgencyTab() {
         e('div', null,
           e(Row, { label: '品牌净收入 (扣平台费后-佣金)', value: r.br }),
           e(Row, { label: '投流分担 (' + (100 - aS) + '%)', value: -r.jiAd }),
+          e(Row, { label: '运营成本分担 (' + (100 - opYi) + '%)', value: -r.jiOP }),
           e('div', { className: 'bt pt1h mt1h' },
             e(Row, { label: '净收入（未扣产品成本）', value: r.jiNet, bold: true }),
             e('div', { className: 'txs t400 mt1' }, '月均 ¥' + fmt(r.jiNet / 12) + ' · 不含产品成本')
